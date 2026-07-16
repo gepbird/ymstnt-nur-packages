@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
       - name: Install Nix
-        uses: cachix/install-nix-action@v31.5.2
+        uses: cachix/install-nix-action@v31
         with:
           nix_path: "nixpkgs=https://github.com/NixOS/nixpkgs/archive/refs/heads/nixos-unstable.tar.gz"
       - name: Update flake packages
-        uses: gepbird/nix-update-action@v3
+        uses: gepbird/nix-update-action@d62754a85906393108483b991e7ba39da3141033
         with:
           packages : "beeper,brave-origin,equicord,lunatask,uni-week-counter"
