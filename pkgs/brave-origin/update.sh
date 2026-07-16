@@ -2,8 +2,6 @@
 #!nix-shell -i bash -p curl nix jq
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-stat $SCRIPT_DIR 1>&2
-exit 1
 
 releasesJson="$(curl --fail -s ${GITHUB_TOKEN:+-u ":$GITHUB_TOKEN"} "https://api.github.com/repos/brave/brave-browser/releases?per_page=20")"
 
