@@ -22,6 +22,6 @@ jobs:
         with:
           nix_path: "nixpkgs=https://github.com/NixOS/nixpkgs/archive/refs/heads/nixos-unstable.tar.gz"
       - name: Update flake packages
-        uses: gepbird/nix-update-action@306c8d4dc70db95b5153036a27b55ef168425330
+        uses: gepbird/nix-update-action@19d8cd917c34e8b26c597dba91e30b2e5fd8a075
         with:
           packages : "beeper,brave-origin,equicord,lunatask,uni-week-counter"
