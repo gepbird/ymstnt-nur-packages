@@ -3,26 +3,49 @@
   fetchurl,
   appimageTools,
   makeWrapper,
+  asar,
   writeShellApplication,
   curl,
-  yq,
   common-updater-scripts,
+  runCommand,
 }:
 let
   pname = "beeper";
-  version = "4.0.551";
-  src = fetchurl {
-    url = "https://beeper-desktop.download.beeper.com/builds/Beeper-${version}.AppImage";
-    hash = "sha256-OLwLjgWFOiBS5RkEpvhH7hreri8EF+JRvKy+Kdre8gM=";
+  version = "4.2.985";
+  originalSrc = fetchurl {
+    url = "https://beeper-desktop.download.beeper.com/builds/Beeper-${version}-x86_64.AppImage";
+    hash = "sha256-oWJdpZL+Q8/jaI/WJfgXUisPASuvHkxU6rOeJkedHSM=";
   };
+  src =  runCommand "${pname}-${version}-fixed.AppImage" { } ''
+    cp ${originalSrc} $out
+    chmod +w $out
+    # Beeper 4.2.985+ ships Linux AppImages without the type-2 magic bytes
+    # (ASCII "AI" + 0x02 at ELF offset 8) that appimageTools.extract requires.
+    # Restore them so extraction matches the existing x86_64-linux packaging path.
+    printf 'AI\x02' | dd of=$out bs=1 seek=8 conv=notrunc status=none
+  '';
 
   appimageContents = appimageTools.extract {
     inherit pname version src;
 
     postExtract = ''
+      appRoot="$out/resources/app"
+      ${lib.getExe asar} extract "$out/resources/app.asar" "$appRoot"
+      rm "$out/resources/app.asar"
+
       # disable creating a desktop file and icon in the home folder during runtime
-      linuxConfigFilename=$out/resources/app/build/main/linux-*.mjs
+      linuxConfigFilename=$appRoot/build/main/linux-*.mjs
       echo "export function registerLinuxConfig() {}" > $linuxConfigFilename
+
+      # disable auto update
+      sed -i 's/c=d??{},p=c.hw_acceleration??!0/c={...(d??{}),auto_update_disabled:true},p=c.hw_acceleration??!0/g' $appRoot/build/main/index-*.mjs
+
+      # prevent updates
+      sed -i -E 's/executeDownload\([^)]+\)\{/executeDownload(){return;/g' $appRoot/build/main/main-entry-*.mjs
+
+      # hide version status element on about page otherwise an error message is shown
+      sed -i '$ a\.subview-prefs-about > div:nth-child(2) {display: none;}' $appRoot/build-browser/*.css
+
     '';
   };
 in
@@ -35,16 +58,15 @@ appimageTools.wrapAppImage {
   extraPkgs = pkgs: [ pkgs.libsecret ];
 
   extraInstallCommands = ''
-    mkdir -p $out/share/icons/hicolor
-    cp -a ${appimageContents}/usr/share/icons/hicolor/512x512 $out/share/icons/hicolor/512x512
+    install -Dm 644 ${appimageContents}/beepertexts.png $out/share/icons/hicolor/512x512/apps/beepertexts.png
     install -Dm 644 ${appimageContents}/beepertexts.desktop -t $out/share/applications/
-
     substituteInPlace $out/share/applications/beepertexts.desktop --replace-fail "AppRun" "beeper"
 
     . ${makeWrapper}/nix-support/setup-hook
     wrapProgram $out/bin/beeper \
       --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}} --no-update" \
-      --set APPIMAGE beeper
+      --set APPIMAGE beeper \
+      --run 'exec >/dev/null'
   '';
 
   passthru = {
@@ -52,16 +74,18 @@ appimageTools.wrapAppImage {
       name = "update-beeper";
       runtimeInputs = [
         curl
-        yq
         common-updater-scripts
       ];
       text = ''
         set -o errexit
-        latestLinux="$(curl -s https://download.todesktop.com/2003241lzgn20jd/latest-linux.yml)"
-        version="$(echo "$latestLinux" | yq -r .version)"
-        update-source-version beeper "$version" "" "https://download.beeper.com/versions/$version/linux/appImage/x64" --source-key=src.src
+        latestLinux="$(curl --silent --output /dev/null --write-out "%{redirect_url}\n" https://api.beeper.com/desktop/download/linux/x64/stable/com.automattic.beeper.desktop)"
+        version="$(echo "$latestLinux" | grep --only-matching --extended-regexp '[0-9]+\.[0-9]+\.[0-9]+')"
+        update-source-version beeper "$version"
       '';
     });
+
+    # needed for nix-update
+    src = originalSrc;
   };
 
   meta ={
