@@ -18,6 +18,7 @@
   deepdwn = pkgs.callPackage ./pkgs/deepdwn { };
   deta-surf = pkgs.callPackage ./pkgs/deta-surf { };
   equicord = pkgs.callPackage ./pkgs/equicord { };
+  fcast-receiver = pkgs.callPackage ./pkgs/fcast-receiver { };
   how-to-convert = pkgs.callPackage ./pkgs/how-to-convert { };
   lifeograph = pkgs.callPackage ./pkgs/lifeograph { };
   lunatask = pkgs.callPackage ./pkgs/lunatask { };
