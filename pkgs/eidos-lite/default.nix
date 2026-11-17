@@ -15,6 +15,8 @@
   pkg-config,
   dbus,
   makeWrapper,
+  makeDesktopItem,
+  copyDesktopItems,
   nix-update-script,
 }:
 stdenv.mkDerivation (finalAttrs: {
@@ -56,6 +58,7 @@ stdenv.mkDerivation (finalAttrs: {
     pnpm_12
     pnpmConfigHook
     makeWrapper
+    copyDesktopItems
     cargo
     rustc
     rustPlatform.cargoSetupHook
@@ -81,6 +84,24 @@ stdenv.mkDerivation (finalAttrs: {
 
   env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
   env.CARGO_NET_OFFLINE = "true";
+
+  desktopItems = [
+    (makeDesktopItem {
+      name = "eidos-lite";
+      desktopName = "Eidos Lite";
+      genericName = "Relational Spreadsheet";
+      comment = "Independent local-first desktop client for Eidos File Spaces";
+      exec = "eidos-lite %U";
+      icon = "eidos-lite";
+      # Launching app.asar through Electron uses the package name as WM_CLASS.
+      startupWMClass = "eidos-space-eidos-lite-desktop";
+      categories = [ "Utility" ];
+      mimeTypes = [
+        "application/x-eidos-plugin"
+        "x-scheme-handler/eidos-lite"
+      ];
+    })
+  ];
 
   buildPhase = ''
     runHook preBuild
@@ -108,6 +129,10 @@ stdenv.mkDerivation (finalAttrs: {
     mkdir -p $out/share/eidos-lite $out/bin
     cp -r apps/eidos-lite-desktop/dist-app/*-unpacked/resources/* $out/share/eidos-lite/
 
+    install -Dm644 apps/eidos-lite-desktop/assets/icons/512x512.png \
+      $out/share/icons/hicolor/512x512/apps/eidos-lite.png
+    install -Dm644 ${./eidos-lite.xml} $out/share/mime/packages/eidos-lite.xml
+
     makeWrapper ${electron}/bin/electron $out/bin/eidos-lite \
       --add-flags "$out/share/eidos-lite/app.asar"
 
@@ -125,6 +150,7 @@ stdenv.mkDerivation (finalAttrs: {
     description = "A single-file relational spreadsheet for you and your agent";
     homepage = "https://eidos.space";
     license = lib.licenses.agpl3Only;
+    mainProgram = "eidos-lite";
     platforms = [
       "x86_64-linux"
       "aarch64-linux"
